@@ -1,6 +1,8 @@
 /*
    Weather Station for Arduino
-   with Weather Sheild (from SparkFun)
+   Compatible with:
+   1. SparkFun Weather Sheild (https://www.sparkfun.com/products/12081)
+   2. MP3115A2 pressure sensor breakout + HTU21D humidity sensor breaout + TEMT6000 light sensor breakout
    
    Yu-Sung Chang
 */
@@ -12,12 +14,13 @@
 
 // For OSEPP-LCD-01
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
-// For regular LCD
+// For other LCD
 //LiquidCrystal lcd(12, 11, 10, 5, 4, 3, 2);
 
-MPL3115A2 myPressure; //Create an instance of the pressure sensor
-HTU21D myHumidity; //Create an instance of the humidity sensor
+MPL3115A2 myPressure;
+HTU21D myHumidity;
 
+#define CHAR_TEMP byte(0) // Character for temperature icon
 byte temp_icon[8] = {
   B01110,
   B01010,
@@ -28,6 +31,7 @@ byte temp_icon[8] = {
   B01110,
 };
 
+#define CHAR_HUMID byte(1) // Character for humidity icon
 byte humid_icon[8] = {
   B00100,
   B01010,
@@ -38,26 +42,7 @@ byte humid_icon[8] = {
   B01110,
 };
 
-byte celsius_icon[8] = {
-  B11000,
-  B11000,
-  B00110,
-  B01001,
-  B01000,
-  B01001,
-  B00110,
-};
-
-byte fahrenheit_icon[8] = {
-  B11000,
-  B11000,
-  B00111,
-  B00100,
-  B00111,
-  B00100,
-  B00100,
-};
-
+#define CHAR_DEG byte(2) // Character for degree symbol
 byte degree_icon[8] = {
   B00100,
   B01010,
@@ -68,37 +53,43 @@ byte degree_icon[8] = {
   B00000,
 };
 
-// digital I/O pins
-const byte WSPEED = 3;
-const byte RAIN = 2;
+#define CHAR_LIGHT byte(3) // Character for light icon
+byte light_icon[8] = {
+  B01110,
+  B10001,
+  B10001,
+  B10001,
+  B01010,
+  B01010,
+  B01110,
+};
+
+// Status LED pins for Weather Shield
+// (Comment it out if you are using discrete breakouts)
 const byte STAT1 = 7;
 const byte STAT2 = 8;
 
-// analog I/O pins
-const byte REFERENCE_3V3 = A3;
+// analog I/O pins for light sensor
 const byte LIGHT = A1;
-const byte BATT = A2;
-const byte WDIR = A0;
+
+// Refresh rate
+#define REFRESH_RATE 5000
 
 void setup()
 {
-  // set up the LCD's number of columns and rows:
+  // Set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
-  lcd.createChar(0, temp_icon);
-  lcd.createChar(1, humid_icon);
-  lcd.createChar(2, celsius_icon);
-  lcd.createChar(3, fahrenheit_icon);
-  lcd.createChar(4, degree_icon);
+  // Set up for LCD special characters
+  lcd.createChar(CHAR_TEMP, temp_icon);
+  lcd.createChar(CHAR_HUMID, humid_icon);
+  lcd.createChar(CHAR_DEG, degree_icon);
+  lcd.createChar(CHAR_LIGHT, light_icon);
   lcd.clear();
 
   pinMode(STAT1, OUTPUT); //Status LED Blue
   pinMode(STAT2, OUTPUT); //Status LED Green
   
-  pinMode(WSPEED, INPUT_PULLUP); // input from wind meters windspeed sensor
-  pinMode(RAIN, INPUT_PULLUP); // input from wind meters rain gauge sensor
-  
-  pinMode(REFERENCE_3V3, INPUT);
-  pinMode(LIGHT, INPUT);
+  pinMode(LIGHT, INPUT); // Light sensor I/O
 
   //Configure the pressure sensor
   myPressure.begin(); // Get sensor online
@@ -113,6 +104,7 @@ void setup()
 float tempC;
 float tempF;
 float humid;
+int light;
 
 void loop()
 {
@@ -122,11 +114,12 @@ void loop()
   humid = myHumidity.readHumidity();
   tempC = myPressure.readTemp();
   tempF = myPressure.readTempF();
+  light = analogRead(LIGHT);
   
   lcd.clear();
 
   lcd.setCursor(0, 0);
-  lcd.write(byte(0));
+  lcd.write(CHAR_TEMP);
 
   if ((tempF < 100) && (tempF >= 0))
     lcd.write(" ");
@@ -135,7 +128,7 @@ void loop()
   lcd.rightToLeft();
   lcd.write(" ");
   lcd.leftToRight();
-  lcd.write(byte(4));
+  lcd.write(CHAR_DEG);
   lcd.write("F");
   lcd.write(" ");
   
@@ -143,21 +136,25 @@ void loop()
   lcd.rightToLeft();
   lcd.write(" ");
   lcd.leftToRight();
-  lcd.write(byte(4));
+  lcd.write(CHAR_DEG);
   lcd.write("C");
   
   lcd.setCursor(0, 1);
-  lcd.write(byte(1));
+  lcd.write(CHAR_HUMID);
   if (humid < 100)
     lcd.write(" ");
-  
-  lcd.print(myHumidity.readHumidity());
+    
+  lcd.print(humid);
   lcd.rightToLeft();
   lcd.write(" ");
   lcd.leftToRight();
-  lcd.print(" %");
+  lcd.print("%  ");
+
+  lcd.write(CHAR_LIGHT);
+  lcd.write(" ");
+  lcd.print(light);
 
   digitalWrite(STAT1, LOW); //Turn off stat LED
   
-  delay(1000);
+  delay(REFRESH_RATE);
 }
